@@ -46,17 +46,16 @@ jobs:
           JSON="${JSON//$'\n'/%0A}"
           JSON="${JSON//$'\r'/'%0D'}"
           echo "::set-output name=deployment-matrix::$JSON"
-          
+
       - name: Debug Deployment Matrix
         run: echo "${{ steps.export-deployment-matrix.outputs.deployment-matrix }}"
-
 
   prepare-release-on-server:
     runs-on: ubuntu-latest
     needs: create-deployment-artifacts
     strategy:
       matrix:
-        server: ${{ fromJson(needs.create-deployment-artifacts.deployment-matrix) }}
+        server: ${{ fromJson(needs.create-deployment-artifacts.outputsdeployment-matrix) }}
     steps:
       - uses: actions/download-artifact@v3
         with:
