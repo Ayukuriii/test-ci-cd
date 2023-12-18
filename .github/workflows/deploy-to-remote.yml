@@ -24,8 +24,8 @@ jobs:
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
-          key: ${{ secrets.MY_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # passphrase: ${{ secrets.PASSPHRASE }}
           port: ${{ secrets.PORT }}
           script: |
             cd ${{ secrets.DIR }}
