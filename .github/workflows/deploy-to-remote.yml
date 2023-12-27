@@ -43,10 +43,6 @@ jobs:
   create-depeloyment-artifacts:
     name: Create deployment artifacts
     runs-on: ubuntu-20.04
-
-    # outputs:
-    #   deployment-matrix: ${{ steps.export-deployment-matrix.outputs.deployment-matrix }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -75,21 +71,9 @@ jobs:
           name: app-build
           path: ${{ github.sha }}.tar.gz
 
-      # - name: Export deployment matrix
-      #   id: export-deployment-matrix
-      #   run: |
-      #     JSON="$(cat ./deployment-config.json)"
-      #     JSON="${JSON//'%'/'%25'}"
-      #     JSON="${JSON//$'\n'/'%0A'}"
-      #     JSON="${JSON//'\r'/'$0D'}"
-      #     echo "::set-output name=deployment-matrix::$JSON"
-
   prepare-release-on-server:
     runs-on: ubuntu-latest
     needs: create-depeloyment-artifacts
-    # strategy:
-    #   matrix:
-    #     server: ${{ fromJson(needs.create-deployment-artifacts.outputs.deployment-matrix) }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -105,3 +89,16 @@ jobs:
           source: ${{ github.sha }}.tar.gz
           target: ${{ secrets.DIR }}/artifacts
 
+      - name: Extract archive and create directories
+        uses: appleboy/ssh-action@master
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          envs: GITHUB_SHA
+          script: |
+            mkdir -p "${{ secrets.DIR }}/releases/${GITHUB_SHA}"
+            tar xzf ${{ secrets.DIR }}/artifacts/${GITHUB_SHA}.tar.gz -C "${{ secrets.DIR }}/releases/${GITHUB_SHA}"
