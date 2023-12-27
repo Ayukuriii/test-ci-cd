@@ -92,8 +92,12 @@ jobs:
     needs: create-depeloyment-artifacts
     strategy:
       matrix:
-        server: ${{ fromJson(needs.create-deployment-artifact.outputs.deployment-matrix) }}
+        server: "${{ fromJson(needs.create-deployment-artifacts.outputs.deployment-matrix) }}"
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: app-build
+
+      # Add debugging step to print matrix value
+      - name: Debug matrix value
+        run: echo "${{ matrix.server }}"
