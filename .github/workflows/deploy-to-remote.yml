@@ -1,33 +1,96 @@
-name: Deploy lo to remote
+# name: Deploy lo to remote
+
+# on:
+#   push:
+#     branches: [main]
+
+# jobs:
+#   zero:
+#     name: try to scan
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Run Dastardly Action Step
+#         continue-on-error: true # This allows subsequent steps to run even if this step fails
+#         uses: PortSwigger/dastardly-github-action@main
+#         with:
+#           target-url: "https://dev.goalsacademy.id"
+#   first:
+#     name: Pull from github
+#     needs: zero
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: deploy goalsacademy - pulling
+#         uses: appleboy/ssh-action@master
+#         with:
+#           host: ${{ secrets.HOST }}
+#           username: ${{ secrets.USERNAME }}
+#           key: ${{ secrets.SSH_PRIVATE_KEY }}
+#           # password: ${{ secrets.PASSWORD }}
+#           port: ${{ secrets.PORT }}
+#           script: |
+#             cd ${{ secrets.DIR }}
+#             git pull origin main && composer install && composer update && php artisan optimize
+#             php artisan config:clear
+#             php artisan storage:link
+
+name: Deploy to remote
 
 on:
   push:
     branches: [main]
 
 jobs:
-  zero:
-    name: try to scan
-    runs-on: ubuntu-latest
+  create-depeloyment-artifacts:
+    name: Create deployment artifacts
+    runs-on: ubuntu-20.04
+
+    outputs:
+      deployment-matrix: ${{ steps.export-deployment-matrix.outputs.deployment-matrix }}
+
     steps:
-      - name: Run Dastardly Action Step
-        continue-on-error: true # This allows subsequent steps to run even if this step fails
-        uses: PortSwigger/dastardly-github-action@main
+      - uses: actions/checkout@v4
+
+      - name: Create Css and Javascript
+        run: |
+          npm install
+          npm run build
+
+      - name: Configure PHP 8.2
+        uses: shivammathur/setup-php@v2
         with:
-          target-url: "https://dev.goalsacademy.id"
-  first:
-    name: Pull from github
-    needs: zero
+          php-version: "8.2"
+          extensions: mbstring, ctype, fileinfo, openssl, PDO, bcmath, json, tokenizer, xml
+
+      - name: Install composer dependencies
+        run: composer install --prefer-dist --no-dev --no-interaction
+
+      - name: Create deployment artifact
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: tar -czf "${{ GITHUB_SHA }}".tar.gz --exclude=*.git *
+
+      - name: Store artifact for distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build
+          path: ${{ github.sha }}.tar.gz
+
+      - name: Export deployment matrix
+        id: export-deployment-matrix
+        run: |
+          JSON="$(cat ./deployment-config.json)"
+          JSON="${JSON//'%'/'%25'}"
+          JSON="${JSON//$'\n'/'%0A'}"
+          JSON="${JSON//'\r'/'$0D'}"
+          echo "::set-output name=deployment-matrix::$JSON"
+
+  prepare-release-on-server:
     runs-on: ubuntu-latest
+    needs: create-depeloyment-artifacts
+    strategy:
+      matrix:
+        server: ${{ fromJson(needs.create-deployment-artifact.outputs.deployment-matrix) }}
     steps:
-      - name: deploy goalsacademy - pulling
-        uses: appleboy/ssh-action@master
+      - uses: actions/download-artifact@v4
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # password: ${{ secrets.PASSWORD }}
-          port: ${{ secrets.PORT }}
-          script: |
-            cd ${{ secrets.DIR }}
-            git pull origin main && composer install && composer update && php artisan optimize
-            php artisan config:clear
+          name: app-build
