@@ -128,3 +128,27 @@ jobs:
           port: ${{ secrets.PORT }}
           envs: GITHUB_SHA,RELEASE_PATH,ACTIVE_RELEASE_PATH,STORAGE_PATH,BASE_PATH
           script: |
+            echo ${GITHUB_SHA}
+
+  activate-release:
+    name: "Activate Release"
+    runs-on: ubuntu-latest
+    needs: [create-depeloyment-artifacts, prepare-release-on-server]
+    steps:
+      - name: Activate release
+        uses: appleboy/ssh-action@master
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          RELEASE_PATH: ${{ secrets.DIR }}/releases/${{ github.sha }}
+          ACTIVE_RELEASE_PATH: ${{ secrets.DIR }}/current
+          STORAGE_PATH: ${{ secrets.DIR }}/storage
+          BASE_PATH: ${{ secrets.DIR }}
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          envs: GITHUB_SHA,RELEASE_PATH,ACTIVE_RELEASE_PATH,STORAGE_PATH,BASE_PATH
+          script: |
+            ln -s -n -f $RELASE_PATH $ACTIVE_RELEASE_PATH
+            service php.8.2-fpm reload
